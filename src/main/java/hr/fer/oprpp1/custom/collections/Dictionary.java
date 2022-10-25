@@ -15,7 +15,7 @@ public class Dictionary<K, V>{
      * @param <K> key
      * @param <V> value
      */
-    private class Entry<K, V>{
+    private static class Entry<K, V>{
         private K key;
         private V value;
 
@@ -140,6 +140,14 @@ public class Dictionary<K, V>{
         V old = this.get(key);
         this.entries.remove(this.getEntry(key));
         return old;
+    }
+
+    /**
+     * Returns the size of the dictionary.
+     * @return
+     */
+    public int size(){
+        return entries.size();
     }
 
 

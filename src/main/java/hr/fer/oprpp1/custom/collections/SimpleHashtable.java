@@ -1,5 +1,9 @@
 package hr.fer.oprpp1.custom.collections;
 
+import java.util.ConcurrentModificationException;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
 /**
  * Implementation of a simple HashMap.
  * @param <K> Type of key.
@@ -8,14 +12,14 @@ package hr.fer.oprpp1.custom.collections;
  * @author MatijaPav
  */
 
-public class SimpleHashtable<K, V> {
+public class SimpleHashtable<K, V> implements Iterable<SimpleHashtable.TableEntry<K, V>>{
 
     /**
      * Implementation of SimpleHashtables entry.
      * @param <K> Type of key.
      * @param <V> Type of value.
      */
-    private static class TableEntry<K, V>{
+    public static class TableEntry<K, V>{
         private K key;
         private V value;
         private TableEntry<K, V> next;
@@ -67,10 +71,16 @@ public class SimpleHashtable<K, V> {
      * Implemented as an array of {@code TableEntry<K, V>}
      */
     private TableEntry<K, V>[] table;
+
     /**
      * Number of stored pairs;
      */
     private int size;
+
+    /**
+     * Counts the number of times the SimpleHashtable was modified.
+     */
+    private int modificationCount;
 
     /**
      * Creates an instance of a {@code SimpleHashtable}
@@ -81,6 +91,7 @@ public class SimpleHashtable<K, V> {
         if(capacity < 1) throw new IllegalArgumentException("Initial capacity can't be less than 1");
         this.table = (TableEntry<K, V>[]) new TableEntry[getFirstPowerOf2(capacity)];
         this.size = 0;
+        this.modificationCount = 0;
     }
 
     /**
@@ -165,6 +176,7 @@ public class SimpleHashtable<K, V> {
         if(head == null){
             this.table[slot] = new TableEntry<>(key, value);
             this.size++;
+            this.modificationCount++;
             return null;
         }
 
@@ -179,6 +191,7 @@ public class SimpleHashtable<K, V> {
         }
         head.next = new TableEntry<>(key, value);
         this.size++;
+        this.modificationCount++;
         return null;
     }
 
@@ -201,17 +214,28 @@ public class SimpleHashtable<K, V> {
     public V remove(Object key){
         if(this.getEntry(key) == null) return null;
 
+        this.modificationCount++;
+
         int slot = key.hashCode() % this.table.length;
         TableEntry<K, V> curr = table[slot];
+
+        if(curr.getKey().equals(key)){
+            table[slot] = curr.next;
+            this.size--;
+            V old = curr.value;
+            curr = null;
+            return old;
+        }
         TableEntry<K, V> previous = curr;
         while(!curr.getKey().equals(key)){
             previous = curr;
             curr = curr.next;
         }
 
-        previous.next = curr.next;
         V old = curr.getValue();
+        previous.next = curr.next;
 
+        curr = null;
         this.size--;
         return old;
     }
@@ -256,22 +280,23 @@ public class SimpleHashtable<K, V> {
 
     public String toString(){
         StringBuilder sb = new StringBuilder();
-
+        int slot = 0;
         for(TableEntry<K, V> entry : table){
             if(entry != null) {
                 sb.append("[");
                 while (entry != null) {
                     if (entry.next == null)
-                        sb.append(entry.getKey()).append("=").append(entry.getValue());
+                        sb.append(entry.getKey()).append("=").append(entry.getValue()).append("]").append('\n');
                     else
                         sb.append(entry.getKey()).append("=").append(entry.getValue()).append(", ");
 
                     entry = entry.next;
                 }
-                sb.append("]").append('\n');
             }
+
         }
-        return sb.toString();
+        String s = sb.toString();
+        return s.substring(0, s.length() - 1);
     }
 
     /**
@@ -287,6 +312,7 @@ public class SimpleHashtable<K, V> {
      * Clears the entire hashtable. Doesn't affect capacity.
      */
     public void clear(){
+        this.modificationCount++;
         for(TableEntry<K, V> head : table){
             head = null;
         }
@@ -305,6 +331,97 @@ public class SimpleHashtable<K, V> {
         this.size = 0;
         for(TableEntry<K, V> entry : old){
             this.put(entry.getKey(), entry.getValue());
+        }
+    }
+
+    /**
+     * Creates a new iterator.
+     * @return SimpleHashtable iterator.
+     */
+    @Override
+    public Iterator<SimpleHashtable.TableEntry<K, V>> iterator(){
+        return new IteratorImpl();
+    }
+
+    /**
+     * Nested class IteratorImpl implements an Iterator for the SimpleHashtable.
+     *
+     * @author MatijaPav
+     */
+    private class IteratorImpl implements Iterator<SimpleHashtable.TableEntry<K, V>>{
+
+        private TableEntry<K, V> currentEntry;
+
+        private TableEntry<K, V> nextEntry;
+
+        private int slot;
+
+        private boolean isRemovable;
+
+        private int returnedElements;
+
+        private int modificationCount;
+
+
+        private IteratorImpl(){
+            this.currentEntry = null;
+            this.slot = 0;
+            this.isRemovable = false;
+            this.returnedElements = 0;
+            this.modificationCount = SimpleHashtable.this.modificationCount;
+        }
+
+        /**
+         * Used to determine if Iterator has a next value to return.
+         * Compares the number of returned elements to the size of the SimpleHashtable.
+         * @return {@code true} if there is a next value to be returned, {@code false} otherwise.
+         * @throws ConcurrentModificationException if the SimpleHashtables internal data structure was modified
+         * after the iterator was instantiated.
+         */
+        public boolean hasNext(){
+            if(modificationCount != SimpleHashtable.this.modificationCount)
+                throw new ConcurrentModificationException("SimpleHashtable was modified after the instantiation of the iterator!");
+            return returnedElements < SimpleHashtable.this.size;
+        }
+
+        /**
+         * Gets the next element of the iteration.
+         * @return next {@code SimpleHashtable.TableEntry<K, V>}
+         */
+        public SimpleHashtable.TableEntry<K, V> next(){
+            if(!hasNext()) throw new NoSuchElementException("No next element!");
+            isRemovable = true;
+            returnedElements++;
+
+            if(currentEntry == null){
+                while(currentEntry == null)
+                    currentEntry = SimpleHashtable.this.table[slot++];
+                return currentEntry;
+            }
+
+            if(currentEntry.next != null) {
+                currentEntry = currentEntry.next;
+                return currentEntry;
+            }
+
+            currentEntry = SimpleHashtable.this.table[slot++];
+            while(currentEntry == null)
+                currentEntry = SimpleHashtable.this.table[slot++];
+
+            return currentEntry;
+
+        }
+
+        /**
+         * Iterator removes the current element.
+         * Method increases modification count to nullify the diffrence created by delegating the removal
+         * of current entry to the {@code SimpleHashtable.remove(Object key)} method which also increases the modification count.
+         */
+        public void remove(){
+            this.modificationCount++;
+            if(!isRemovable) throw new IllegalStateException("Can't remove this entry!");
+            SimpleHashtable.this.remove(currentEntry.getKey());
+            isRemovable = false;
         }
 
     }

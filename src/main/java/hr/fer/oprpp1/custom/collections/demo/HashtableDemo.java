@@ -19,6 +19,15 @@ public class HashtableDemo {
 
         System.out.println(hashtable.toString());
 
+        System.out.println(hashtable.size());
+
+        System.out.println(hashtable.remove(22));
+
+        System.out.println(hashtable.size());
+
+        System.out.println(hashtable.toString());
+
+
     }
 
 }

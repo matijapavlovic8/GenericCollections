@@ -79,7 +79,7 @@ public class SimpleHashtable<K, V> {
     @SuppressWarnings("unchecked")
     public SimpleHashtable(int capacity){
         if(capacity < 1) throw new IllegalArgumentException("Initial capacity can't be less than 1");
-        this.table =(TableEntry<K, V>[]) new TableEntry[getFirstPowerOf2(capacity)];
+        this.table = (TableEntry<K, V>[]) new TableEntry[getFirstPowerOf2(capacity)];
         this.size = 0;
     }
 
@@ -131,12 +131,12 @@ public class SimpleHashtable<K, V> {
     private TableEntry<K, V> getEntry(Object key){
         int slot = key.hashCode() % this.table.length;
         TableEntry<K, V> head = this.table[slot];
-        while(head != null && head.getKey().equals(key)){
+        while(head != null){
+            if(head.getKey().equals(key))
+                return head;
             head = head.next;
         }
-        if(head.getKey().equals(key))
-            return head;
-        else return null;
+        return null;
     }
 
     /**
@@ -156,8 +156,18 @@ public class SimpleHashtable<K, V> {
      */
 
     public V put(K key, V value){
+        if(checkLoadFactor())
+            rehash();
+
         int slot = key.hashCode() % this.table.length;
         TableEntry<K, V> head = this.table[slot];
+
+        if(head == null){
+            this.table[slot] = new TableEntry<>(key, value);
+            this.size++;
+            return null;
+        }
+
         while(head.next != null && head.getKey() != key)
             head = head.next;
 
@@ -248,18 +258,55 @@ public class SimpleHashtable<K, V> {
         StringBuilder sb = new StringBuilder();
 
         for(TableEntry<K, V> entry : table){
-            sb.append("[");
-            while(entry != null) {
-                if(entry.next == null)
-                    sb.append(entry.getKey()).append("=").append(entry.getValue());
-                else
-                    sb.append(entry.getKey()).append("=").append(entry.getValue()).append(", ");
+            if(entry != null) {
+                sb.append("[");
+                while (entry != null) {
+                    if (entry.next == null)
+                        sb.append(entry.getKey()).append("=").append(entry.getValue());
+                    else
+                        sb.append(entry.getKey()).append("=").append(entry.getValue()).append(", ");
 
-                entry = entry.next;
+                    entry = entry.next;
+                }
+                sb.append("]").append('\n');
             }
-            sb.append("]").append('\n');
         }
         return sb.toString();
+    }
+
+    /**
+     * Checks if the hashtable is overfilled.
+     * @return {@code true} if the ratio between the number of elements and length of the internal
+     * data structure is 0.75 or greater.
+     */
+    private boolean checkLoadFactor(){
+        return ((double)this.size / this.table.length) >= 0.75;
+    }
+
+    /**
+     * Clears the entire hashtable. Doesn't affect capacity.
+     */
+    public void clear(){
+        for(TableEntry<K, V> head : table){
+            head = null;
+        }
+        this.size = 0;
+    }
+
+    /**
+     * Method doubles the length of the internal data structure and rehashes the table.
+     */
+    @SuppressWarnings("unchecked")
+    private void rehash(){
+        TableEntry<K, V>[] old = this.toArray();
+        int oldLen = this.table.length;
+
+        this.table = (TableEntry<K, V>[]) new TableEntry[oldLen * 2];
+        this.size = 0;
+        for(TableEntry<K, V> entry : old){
+            this.put(entry.getKey(), entry.getValue());
+        }
+
     }
 
 }

@@ -30,12 +30,14 @@ public class SimpleHashtableIteratorDemo {
         Iterator<SimpleHashtable.TableEntry<Integer, Integer>> iterator2 = hashtable2.iterator();
 
         System.out.println(hashtable2.toString());
-
+        System.out.println(hashtable2.size());
+        int i = 0;
         while(iterator2.hasNext()){
             iterator2.next();
             iterator2.remove();
+            i++;
         }
-
+        System.out.println(i);
         System.out.println(hashtable2.toString());
 
     }

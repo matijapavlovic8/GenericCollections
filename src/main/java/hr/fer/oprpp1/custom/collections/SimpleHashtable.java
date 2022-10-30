@@ -279,6 +279,7 @@ public class SimpleHashtable<K, V> implements Iterable<SimpleHashtable.TableEntr
      */
 
     public String toString(){
+        if(isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
         int slot = 0;
         for(TableEntry<K, V> entry : table){
@@ -361,6 +362,7 @@ public class SimpleHashtable<K, V> implements Iterable<SimpleHashtable.TableEntr
         private int returnedElements;
 
         private int modificationCount;
+        private int originalSize;
 
 
         private IteratorImpl(){
@@ -369,6 +371,7 @@ public class SimpleHashtable<K, V> implements Iterable<SimpleHashtable.TableEntr
             this.isRemovable = false;
             this.returnedElements = 0;
             this.modificationCount = SimpleHashtable.this.modificationCount;
+            this.originalSize = SimpleHashtable.this.size;
         }
 
         /**
@@ -381,7 +384,7 @@ public class SimpleHashtable<K, V> implements Iterable<SimpleHashtable.TableEntr
         public boolean hasNext(){
             if(modificationCount != SimpleHashtable.this.modificationCount)
                 throw new ConcurrentModificationException("SimpleHashtable was modified after the instantiation of the iterator!");
-            return returnedElements < SimpleHashtable.this.size;
+            return returnedElements < originalSize;
         }
 
         /**
@@ -418,8 +421,8 @@ public class SimpleHashtable<K, V> implements Iterable<SimpleHashtable.TableEntr
          * of current entry to the {@code SimpleHashtable.remove(Object key)} method which also increases the modification count.
          */
         public void remove(){
-            this.modificationCount++;
             if(!isRemovable) throw new IllegalStateException("Can't remove this entry!");
+            this.modificationCount++;
             SimpleHashtable.this.remove(currentEntry.getKey());
             isRemovable = false;
         }
